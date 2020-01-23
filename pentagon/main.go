@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -108,20 +110,14 @@ func getVaultClient(vaultConfig pentagon.VaultConfig) (*api.Client, error) {
 	case vault.AuthTypeToken:
 		client.SetToken(vaultConfig.Token)
 	case vault.AuthTypeGCPDefault:
-		// default to using configured Role
-		role := vaultConfig.Role
-
-		// if that's not provided, get it from the default service account
-		if role == "" {
-			role, err = getRoleViaGCP()
-			if err != nil {
-				return nil, fmt.Errorf("error getting role from gcp: %s", err)
-			}
-		}
-
-		err := setVaultTokenViaGCP(client, role)
+		err := setVaultTokenViaGCP(client, vaultConfig.Role)
 		if err != nil {
 			return nil, fmt.Errorf("unable to set token via gcp: %s", err)
+		}
+	case vault.AuthTypeKubernetes:
+		err := setVaultTokenViaKubernetes(client, vaultConfig.Role, vaultConfig.AuthPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to set token via kubernetes: %s", err)
 		}
 	default:
 		return nil, fmt.Errorf(
@@ -143,6 +139,14 @@ func getRoleViaGCP() (string, error) {
 }
 
 func setVaultTokenViaGCP(vaultClient *api.Client, role string) error {
+	// if that's not provided, get it from the default service account
+	var err error
+	if role == "" {
+		role, err = getRoleViaGCP()
+		if err != nil {
+			return fmt.Errorf("error getting role from gcp: %s", err)
+		}
+	}
 	// just make a request directly to the metadata server rather
 	// than going through the APIs which don't seem to wrap this functionality
 	// in a terribly convenient way.
@@ -183,4 +187,60 @@ func setVaultTokenViaGCP(vaultClient *api.Client, role string) error {
 	vaultClient.SetToken(vaultResp.Auth.ClientToken)
 
 	return nil
+}
+
+func setVaultTokenViaKubernetes(vaultClient *api.Client, role, authPath string) error {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return fmt.Errorf("error getting ServiceAccount token: %s", err)
+	}
+	if authPath == "" {
+		authPath = "auth/kubernetes"
+	}
+	if role == "" {
+		payload, err := NewServiceAccountToken(config.BearerToken)
+		if err != nil {
+			return fmt.Errorf("error getting role from ServiceAccount token: %s", err)
+		}
+		role = payload.Data["kubernetes.io/serviceaccount/service-account.name"]
+	}
+	vaultResp, err := vaultClient.Logical().Write(
+		fmt.Sprintf("%s/login", authPath),
+		map[string]interface{}{
+			"role": role,
+			"jwt":  config.BearerToken,
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("error authenticating to vault via kubernetes: %s", err)
+	}
+
+	vaultClient.SetToken(vaultResp.Auth.ClientToken)
+
+	return nil
+}
+
+type TokenPayload struct {
+	Data map[string]string
+}
+
+func (e *TokenPayload) UnmarshalJSON(b []byte) error {
+	// base64 decode the payload
+	raw, err := base64.RawStdEncoding.DecodeString(string(b))
+	if err != nil {
+		return err
+	}
+	// unmarshal the raw text into our map[string]string
+	return json.Unmarshal(raw, &e.Data)
+}
+
+func NewServiceAccountToken(token string) (TokenPayload, error) {
+	payload := TokenPayload{}
+	tokenParts := strings.Split(token, ".")
+	if len(tokenParts) != 3 {
+		return payload, fmt.Errorf("invalid token format")
+	}
+	err := json.Unmarshal([]byte(tokenParts[1]), &payload)
+	return payload, err
 }

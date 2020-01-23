@@ -35,6 +35,12 @@ const (
 	// to be populated with the role that vault expects and will use the machine's
 	// default service account, running within GCP.
 	AuthTypeGCPDefault AuthType = "gcp-default"
+
+	// AuthTypeKubernetes expects the Role property and AuthBackend property of the
+	// VaultConfig struct to be populated with the desired values.  if role is not set,
+	// it will default to the pods serviceAccount name. If AutheBackend is not set it will
+	// default to 'kubernetes'
+	AuthTypeKubernetes AuthType = "kubernetes"
 )
 
 func init() {
