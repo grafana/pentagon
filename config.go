@@ -79,9 +79,10 @@ type VaultConfig struct {
 	DefaultEngineType vault.EngineType `yaml:"defaultEngineType"`
 
 	// Role is the role used when authenticating with vault.  If this is unset
-	// the role will be discovered by querying the GCP metadata service for
-	// the default service account's email address and using the "user" portion
-	// (before the '@').
+	// the role will be discovered. If using gcp-default authType the discover is
+	// by querying the GCP metadata service for the default service account's email
+	// address and using the "user" portion (before the '@').  If using kubernetes
+	// authType, the serviceAccount name is used.
 	Role string `yaml:"role"` // used for non-token auth
 
 	// Token is a vault token and is only considered when AuthType == "token".
@@ -90,6 +91,10 @@ type VaultConfig struct {
 	// TLSConfig allows you to set any TLS options that the vault client
 	// accepts.
 	TLSConfig *api.TLSConfig `yaml:"tls"` // for other vault TLS options
+
+	// AuthPath is the vault auth path when using AuthTypeKubernetes authType.
+	// The default is "auth/kubernetes"
+	AuthPath string `yaml:"authPath"`
 }
 
 // Mapping is a single mapping for a vault secret to a k8s secret.
