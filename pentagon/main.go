@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/hashicorp/vault/api"
@@ -68,11 +69,27 @@ func main() {
 		config.Namespace,
 		config.Label,
 	)
-
 	err = reflector.Reflect(config.Mappings)
 	if err != nil {
 		log.Printf("error reflecting vault values into kubernetes: %s", err)
 		os.Exit(40)
+	}
+
+	if config.Daemon {
+		log.Printf("running as a daemon. Refresh interval is %s", config.RefreshInterval.String())
+		ticker := time.NewTicker(config.RefreshInterval)
+		for range ticker.C {
+			err := setVaultToken(vaultClient, config.Vault)
+			if err != nil {
+				log.Printf("error setting vault token. %s", err)
+				continue
+			}
+			err = reflector.Reflect(config.Mappings)
+			if err != nil {
+				log.Printf("error reflecting vault values into kubernetes: %s", err)
+				continue
+			}
+		}
 	}
 }
 
@@ -105,28 +122,35 @@ func getVaultClient(vaultConfig pentagon.VaultConfig) (*api.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = setVaultToken(client, vaultConfig)
+	if err != nil {
+		return nil, err
+	}
 
+	return client, nil
+}
+
+func setVaultToken(client *api.Client, vaultConfig pentagon.VaultConfig) error {
 	switch vaultConfig.AuthType {
 	case vault.AuthTypeToken:
 		client.SetToken(vaultConfig.Token)
 	case vault.AuthTypeGCPDefault:
 		err := setVaultTokenViaGCP(client, vaultConfig.Role)
 		if err != nil {
-			return nil, fmt.Errorf("unable to set token via gcp: %s", err)
+			return fmt.Errorf("unable to set token via gcp: %s", err)
 		}
 	case vault.AuthTypeKubernetes:
 		err := setVaultTokenViaKubernetes(client, vaultConfig.Role, vaultConfig.AuthPath)
 		if err != nil {
-			return nil, fmt.Errorf("unable to set token via kubernetes: %s", err)
+			return fmt.Errorf("unable to set token via kubernetes: %s", err)
 		}
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			"unsupported vault auth type: %s",
 			vaultConfig.AuthType,
 		)
 	}
-
-	return client, nil
+	return nil
 }
 
 func getRoleViaGCP() (string, error) {

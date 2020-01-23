@@ -2,6 +2,7 @@ package pentagon
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/vimeo/pentagon/vault"
@@ -28,6 +29,13 @@ type Config struct {
 
 	// Mappings is a list of mappings.
 	Mappings []Mapping `yaml:"mappings"`
+
+	// Daemon sets the process to run as a daemon, refreshing secrets periodically
+	Daemon bool `yaml:"daemon"`
+
+	// RefreshInterval sets the interval that secrets should be refreshed when running
+	// as a daemon
+	RefreshInterval time.Duration `yaml:"refresh"`
 }
 
 // SetDefaults sets defaults for the Namespace and Label in case they're
@@ -52,6 +60,10 @@ func (c *Config) SetDefaults() {
 		if m.VaultEngineType == "" {
 			m.VaultEngineType = c.Vault.DefaultEngineType
 		}
+	}
+
+	if c.RefreshInterval == 0 {
+		c.RefreshInterval = time.Minute * 15
 	}
 }
 
