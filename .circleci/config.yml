@@ -15,7 +15,7 @@ jobs:
       - checkout
       - run:
           name: build binary
-          command: make build
+          command: make build/linux/pentagon
       - persist_to_workspace:
           root: .
           paths:
