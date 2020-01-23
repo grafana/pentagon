@@ -6,6 +6,10 @@ workflows:
     jobs:
     - test
     - build
+    - docker:
+        requires:
+          - test
+          - build
 
 jobs:
   build:
@@ -32,3 +36,23 @@ jobs:
       - run:
           name: vet
           command: go vet ./...
+
+  docker:
+    docker:
+      - image: circleci/golang:1.13.5
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - setup_remote_docker
+      - run:
+          name: login
+          command: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+      - run:
+          name: docker image
+          command: make docker
+      - deploy:
+          command: |
+            if [ "${CIRCLE_BRANCH}" == "master" ]; then
+              make docker-push
+            fi
