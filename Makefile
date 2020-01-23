@@ -18,6 +18,10 @@ build/darwin/pentagon: $(DEPS)
 docker: Dockerfile $(DEPS)
 	docker build . -t grafana/pentagon:${RepoTag}
 
+.PHONY: docker-push
+docker-push: Dockerfile $(DEPS)
+	docker push grafana/pentagon:${RepoTag}
+
 .PHONY: test
 test:
 	@go test -v ./...
