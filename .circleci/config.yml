@@ -1,0 +1,34 @@
+version: 2
+
+workflows:
+  version: 2
+  default:
+    jobs:
+    - test
+    - build
+
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.13.5
+    steps:
+      - checkout
+      - run:
+          name: build binary
+          command: make build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - build
+
+  test:
+    docker:
+      - image: circleci/golang:1.13.5
+    steps:
+      - checkout
+      - run:
+          name: unit tests
+          command: make test
+      - run:
+          name: vet
+          command: go vet ./...
