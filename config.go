@@ -36,6 +36,10 @@ type Config struct {
 	// RefreshInterval sets the interval that secrets should be refreshed when running
 	// as a daemon
 	RefreshInterval time.Duration `yaml:"refresh"`
+
+	// ListenAddress is the address that pentagon will listen on to provide prometheus metrics.
+	// Only in daemon mode. Default ':8888'
+	ListenAddress string `yaml:"listen"`
 }
 
 // SetDefaults sets defaults for the Namespace and Label in case they're
@@ -64,6 +68,10 @@ func (c *Config) SetDefaults() {
 
 	if c.RefreshInterval == 0 {
 		c.RefreshInterval = time.Minute * 15
+	}
+
+	if c.ListenAddress == "" {
+		c.ListenAddress = ":8888"
 	}
 }
 
