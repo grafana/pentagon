@@ -114,7 +114,20 @@ func (r *Reflector) Reflect(mappings []Mapping) error {
 				},
 			},
 			Data: k8sSecretData,
+			Type: v1.SecretTypeOpaque,
 		}
+
+		// if the secret has ".dockercfg", use type "kubernetes.io/dockercfg"
+		if k8sSecretData[v1.DockerConfigKey] != nil {
+			newSecret.Type = v1.SecretTypeDockercfg
+		}
+
+		// same with .dockerconfigson
+		if k8sSecretData[v1.DockerConfigJsonKey] != nil {
+			newSecret.Type = v1.SecretTypeDockerConfigJson
+		}
+
+		// there are other types as needed. See https://pkg.go.dev/k8s.io/api/core/v1?tab=doc#SecretTypeOpaque
 
 		if _, ok := secretsSet[mapping.SecretName]; ok {
 			// secret already exists, so we should update it
