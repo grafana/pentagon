@@ -2,9 +2,9 @@ DEPS := $(shell go list -f '{{$$dir := .Dir}}{{range .GoFiles }}{{$$dir}}/{{.}} 
 BUILD = $(shell git rev-parse --short HEAD 2>/dev/null)
 VERSION = $(shell git describe --tags)
 LDFLAGS := "-X main.BUILD=$(BUILD) -X main.VERSION=$(VERSION)"
-RepoTag = $(shell git describe --abbrev=0 --tags 2>/dev/null || (echo '0.0.0'))
 
-GOMOD_RO_FLAG ?=
+GitTag = $(shell git describe --abbrev=0 --tags 2>/dev/null || (echo '0.0.0'))
+RepoTag := $(or $(CIRCLE_BUILD_NUM), ${GitTag})
 
 build/linux/pentagon: $(DEPS)
 	mkdir -p build/linux
