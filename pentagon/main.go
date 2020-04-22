@@ -25,7 +25,10 @@ import (
 	"github.com/vimeo/pentagon/vault"
 )
 
-var successGauge = promauto.NewGauge(prometheus.GaugeOpts{Name: "pentagon_status"})
+var successGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "pentagon_status",
+	Help: "Status of the last attempt to reflect secrets. 1 for success, 0 for failure",
+})
 
 func main() {
 	if len(os.Args) != 2 {
