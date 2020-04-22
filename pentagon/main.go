@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -17,9 +18,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/vimeo/pentagon"
 	"github.com/vimeo/pentagon/vault"
 )
+
+var successGauge = promauto.NewGauge(prometheus.GaugeOpts{Name: "pentagon_status"})
 
 func main() {
 	if len(os.Args) != 2 {
@@ -74,21 +80,28 @@ func main() {
 		log.Printf("error reflecting vault values into kubernetes: %s", err)
 		os.Exit(40)
 	}
+	successGauge.Set(1)
 
 	if config.Daemon {
 		log.Printf("running as a daemon. Refresh interval is %s", config.RefreshInterval.String())
+
+		http.Handle("/metrics", promhttp.Handler())
+		go http.ListenAndServe(config.ListenAddress, nil)
 		ticker := time.NewTicker(config.RefreshInterval)
 		for range ticker.C {
 			err := setVaultToken(vaultClient, config.Vault)
 			if err != nil {
 				log.Printf("error setting vault token. %s", err)
+				successGauge.Set(0)
 				continue
 			}
 			err = reflector.Reflect(config.Mappings)
 			if err != nil {
+				successGauge.Set(0)
 				log.Printf("error reflecting vault values into kubernetes: %s", err)
 				continue
 			}
+			successGauge.Set(1)
 		}
 	}
 }
