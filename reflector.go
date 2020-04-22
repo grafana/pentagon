@@ -118,12 +118,12 @@ func (r *Reflector) Reflect(mappings []Mapping) error {
 		}
 
 		// if the secret has ".dockercfg", use type "kubernetes.io/dockercfg"
-		if k8sSecretData[v1.DockerConfigKey] != "" {
+		if k8sSecretData[v1.DockerConfigKey] != nil {
 			newSecret.Type = v1.SecretTypeDockercfg
 		}
 
 		// same with .dockerconfigson
-		if k8sSecretData[v1.DockerConfigJsonKey] != "" {
+		if k8sSecretData[v1.DockerConfigJsonKey] != nil {
 			newSecret.Type = v1.SecretTypeDockerConfigJson
 		}
 
